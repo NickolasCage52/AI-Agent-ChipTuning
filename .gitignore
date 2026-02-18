@@ -1,0 +1,39 @@
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.idea/
+.vscode/
+.cursor/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.pkl
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments (DO NOT commit)
+.venv/
+venv/
+ENV/
+env/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+*.log
+
+# --- Local secrets ---
+.env
+.env.*
+!.env.example
+
