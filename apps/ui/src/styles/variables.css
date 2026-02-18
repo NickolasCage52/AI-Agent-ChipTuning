@@ -1,0 +1,25 @@
+:root {
+  /* Premium dark / neon automotive vibe */
+  --bg: #07080b;
+  --fg: #f6f7fb;
+  --muted: rgba(246, 247, 251, 0.68);
+  --card: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.10);
+
+  --primary: #e11d2e; /* red CTA */
+  --primary-fg: #ffffff;
+  --accent: #52ffa8; /* neon */
+
+  --shadow-soft: 0 18px 60px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 28px rgba(82, 255, 168, 0.14);
+  --radius: 18px;
+
+  --grad-hero: radial-gradient(1200px 800px at 15% 10%, rgba(225, 29, 46, 0.22), rgba(0, 0, 0, 0) 60%),
+    radial-gradient(900px 650px at 85% 20%, rgba(82, 255, 168, 0.16), rgba(0, 0, 0, 0) 55%),
+    radial-gradient(800px 600px at 50% 90%, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0) 55%);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans",
+    sans-serif;
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+

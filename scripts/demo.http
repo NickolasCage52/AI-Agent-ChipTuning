@@ -1,0 +1,87 @@
+### 0) Health (core / agent / rag)
+GET http://localhost:8000/health
+
+###
+GET http://localhost:8001/health
+
+###
+GET http://localhost:8003/health
+
+### 1) Agent → lead create/update → draft estimate → logs (ТО)
+POST http://localhost:8001/api/agent/message
+Content-Type: application/json
+
+{
+  "channel": "web",
+  "message": "ТО. Kia Rio 2017, пробег 120к"
+}
+
+### 2) Agent → parts search (uses imported/seeded supplier_offers)
+POST http://localhost:8001/api/agent/message
+Content-Type: application/json
+
+{
+  "channel": "web",
+  "message": "Нужны колодки (OEM 04465-33480) на Toyota Camry 50"
+}
+
+### 3) Operator: list leads
+GET http://localhost:8000/api/leads
+
+### 4) Operator: list agent_runs for a lead
+# Copy lead_id from /api/leads
+GET http://localhost:8000/api/agent_runs?lead_id={{lead_id}}
+
+### 5) Suppliers: list (DemoSupplier is seeded)
+GET http://localhost:8000/api/suppliers
+
+### 6) Import supplier CSV via INTERNAL tool (base64) (idempotent upsert)
+# Copy supplier_id from /api/suppliers
+POST http://localhost:8000/internal/tools/import_supplier_price
+Content-Type: application/json
+
+{
+  "supplier_id": "{{supplier_id}}",
+  "filename": "demo.csv",
+  "content_base64": "c2t1O29lbTtuYW1lO2JyYW5kO3ByaWNlO3N0b2NrO2RlbGl2ZXJ5X2RheXMNCk9GLTAwMTsyNjMwMC0zNTUwNTtPaWwgZmlsdGVyO01hbm47NDUwOzEyOzENCk9GLTAwMjsyNjMwMC0zNTUwNTtPaWwgZmlsdGVyO1Nha3VyYTszOTA7NzsyDQpPRi0wMDM7OTA5MTUtWVpaRTE7T2lsIGZpbHRlcjtUb3lvdGE7ODkwOzQ7Mg0KT0YtMDA0OzkwOTE1LVlaWkUxO09pbCBmaWx0ZXI7TWFobGU7NTIwOzk7Mg0KQUYtMDAxOzI4MTEzLTFSMTAwO0FpciBmaWx0ZXI7TWFubjs3ODA7NjsyDQpBRi0wMDI7MjgxMTMtMVIxMDA7QWlyIGZpbHRlcjtGaWx0cm9uOzYyMDs4OzINCkNGLTAwMTs5NzEzMy1EMTAwMDtDYWJpbiBmaWx0ZXI7TWFubjs4NTA7MTA7Mg0KQ0YtMDAyOzk3MTMzLUQxMDAwO0NhYmluIGZpbHRlcjtTYWt1cmE7NjkwOzU7Mw0KQlAtMDAxOzA0NDY1LTMzNDgwO0JyYWtlIHBhZHMgZnJvbnQ7QWtlYm9ubzszMjAwOzY7Mg0KQlAtMDAyOzA0NDY1LTMzNDgwO0JyYWtlIHBhZHMgZnJvbnQ7Tmlzc2hpbmJvOzI4NTA7NDszDQpCUC0wMDM7MDQ0NjUtMzM0ODA7QnJha2UgcGFkcyBmcm9udDtUb3lvdGE7NTIwMDsyOzMNCkJQLTAwNDswNDQ2NS0wNjA4MDtCcmFrZSBwYWRzIHJlYXI7QWtlYm9ubzsyOTAwOzU7Mg0KU1AtMDAxOzQ4ODIwLTMzMDQwO1N0YWJpbGl6ZXIgbGluaztDVFI7MTEwMDs4OzINClNQLTAwMjs0ODgyMC0zMzA0MDtTdGFiaWxpemVyIGxpbms7RmViZXN0OzkwMDszOzMNClNQLTAwMzs0MzMzMC0wOTUyMDtCYWxsIGpvaW50OzU1NTsxNzUwOzQ7Mg0KU1AtMDA0OzQzMzMwLTA5NTIwO0JhbGwgam9pbnQ7Q1RSOzE0NTA7NjszDQpQTC0wMDE7MTg4NDYtMTEwNzA7U3BhcmsgcGx1ZztOR0s7NjUwOzIwOzINClBMLTAwMjsxODg0Ni0xMTA3MDtTcGFyayBwbHVnO0RlbnNvOzcyMDsxNjsyDQpCTC0wMDE7OTA5MTYtMDMxMDA7RHJpdmUgYmVsdDtHYXRlczsxNTUwOzc7Mw0KQkwtMDAyOzkwOTE2LTAzMTAwO0RyaXZlIGJlbHQ7Q29udGl0ZWNoOzE2OTA7NTszDQo="
+}
+
+### 7) Parts: search / compare (public core API)
+GET http://localhost:8000/api/parts/search?query=04465-33480
+
+###
+GET http://localhost:8000/api/parts/compare?oem=04465-33480
+
+### 8) RAG: query (seeded docs are loaded automatically on boot)
+POST http://localhost:8003/api/rag/query
+Content-Type: application/json
+
+{
+  "query": "замена масла регламент",
+  "top_k": 3
+}
+
+### 9) Build + approve estimate via public core API (operator action)
+# Copy lead_id from /api/leads
+POST http://localhost:8000/api/estimate
+Content-Type: application/json
+
+{
+  "lead_id": "{{lead_id}}",
+  "jobs": [
+    {"code": "DIAG_ECU", "name": "Компьютерная диагностика (сканер)", "qty": 1, "unit_price": 1200}
+  ],
+  "parts": [],
+  "pricing_rules": [{"rule_type": "percent_add_total", "params": {"percent": 10}}],
+  "notes": "Demo estimate build"
+}
+
+###
+# Copy estimate_id from previous response
+POST http://localhost:8000/api/estimate/{{estimate_id}}/approve
+Content-Type: application/json
+
+{
+  "approved_by": "demo-operator"
+}
+

@@ -1,0 +1,31 @@
+sku;oem;name;brand;price;stock;delivery_days
+OF-001;26300-35505;Oil filter;Mann;450;12;1
+OF-002;26300-35505;Oil filter;Sakura;390;7;2
+OF-003;90915-YZZE1;Oil filter;Toyota;890;4;2
+OF-004;90915-YZZE1;Oil filter;Mahle;520;9;2
+AF-001;28113-1R100;Air filter;Mann;780;6;2
+AF-002;28113-1R100;Air filter;Filtron;620;8;2
+CF-001;97133-D1000;Cabin filter;Mann;850;10;2
+CF-002;97133-D1000;Cabin filter;Sakura;690;5;3
+BP-001;04465-33480;Brake pads front;Akebono;3200;6;2
+BP-002;04465-33480;Brake pads front;Nisshinbo;2850;4;3
+BP-003;04465-33480;Brake pads front;Toyota;5200;2;3
+BP-004;04465-06080;Brake pads rear;Akebono;2900;5;2
+SP-001;48820-33040;Stabilizer link;CTR;1100;8;2
+SP-002;48820-33040;Stabilizer link;Febest;900;3;3
+SP-003;43330-09520;Ball joint;555;1750;4;2
+SP-004;43330-09520;Ball joint;CTR;1450;6;3
+PL-001;18846-11070;Spark plug;NGK;650;20;2
+PL-002;18846-11070;Spark plug;Denso;720;16;2
+BL-001;90916-03100;Drive belt;Gates;1550;7;3
+BL-002;90916-03100;Drive belt;Contitech;1690;5;3
+BD-001;43512-06110;Brake disc front;TRW;5400;4;3
+BD-002;43512-06110;Brake disc front;Brembo;6100;2;2
+BD-003;42431-33230;Brake disc rear;Ate;4800;3;3
+BD-004;42431-33230;Brake disc rear;Brembo;5600;2;2
+ATF-001;08886-02305;ATF WS 4L;Toyota;5200;6;2
+OIL-001;08880-10705;Engine oil 5W-30 4L;Toyota;4200;8;1
+WIP-001;85222-0R020;Wiper blade 650mm;Bosch;1200;20;2
+TIE-001;45046-39295;Tie rod end;555;1900;4;3
+MNT-001;48609-06070;Strut mount;KYB;2600;3;4
+BOOT-001;04438-06030;CV boot;GKN;1600;5;3
