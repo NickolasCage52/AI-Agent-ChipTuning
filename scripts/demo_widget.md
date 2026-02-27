@@ -19,7 +19,7 @@ docker compose up --build
 4) Напишите сообщение в виджете.
 
 Проверка:
-- В UI оператора откройте `http://localhost:3000/operator/leads` → выберите lead → смотрите **Event Timeline**
+- В UI оператора откройте `http://localhost:3001/operator/leads` → выберите lead → смотрите **Event Timeline**
 - Должны появиться события:
   - `widget.session_created`
   - `widget.message_received`

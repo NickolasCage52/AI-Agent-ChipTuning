@@ -30,7 +30,7 @@ ngrok http 8004
 5) Напишите боту в Telegram.
 
 Проверка:
-- В UI оператора `http://localhost:3000/operator/leads` найдите lead и откройте timeline.
+- В UI оператора `http://localhost:3001/operator/leads` найдите lead и откройте timeline.
 - Должны появиться события:
   - `telegram.update_received`
   - `telegram.reply_sent`

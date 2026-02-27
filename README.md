@@ -1,5 +1,7 @@
 ## Autoshop AI Agent (on‑prem) — MVP
 
+📖 **Подробная инструкция:** [USER_GUIDE.md](USER_GUIDE.md)
+
 Монорепо с локально разворачиваемой системой (Docker Compose): Telegram/Web обращения → агент → lead → черновик сметы → approval оператором.  
 Смета **никогда не считается “фактом”** без инструментов; любые деньги/закуп — **draft → requires_approval → approve**.
 
@@ -10,6 +12,12 @@
 - **`services/model-server`**: HTTP API для LLM (MVP stub, опционально прокси в Ollama)
 - **`services/rag-service`**: загрузка документов + поиск по чанкам (MVP Postgres full-text search, хранение в Postgres)
 - **`apps/ui`**: Next.js + Tailwind + простой demo UX (`/demo`, `/operator/leads`, `/admin`)
+- **`apps/telegram_bot`**: Parts Assistant Telegram-бот — подбор запчастей через диалог (Эконом/Оптимум/OEM)
+
+### Telegram Bot
+
+Parts Assistant доступен как Telegram-бот: принимает запрос, уточняет детали (до 2 вопросов), возвращает 3 варианта с ценами.  
+См. [USER_GUIDE.md §6](USER_GUIDE.md#6-как-пользоваться-telegram-ботом) — запуск, команды, настройка `TELEGRAM_BOT_TOKEN`.
 
 ### Быстрый старт
 
@@ -56,18 +64,19 @@ npm install
 ```
 
 Открыть:
-- UI demo: `http://localhost:3000/demo`
+- UI: `http://localhost:3001` (Parts Assistant)
+- UI demo: `http://localhost:3001/demo`
 - core-api OpenAPI: `http://localhost:8000/docs`
 - agent-orchestrator OpenAPI: `http://localhost:8001/docs`
 - rag-service OpenAPI: `http://localhost:8003/docs`
 
 ### Demo-steps (UI)
 
-1) Откройте `http://localhost:3000/demo`
+1) Откройте `http://localhost:3001/demo`
 2) Нажмите быстрые кнопки **ТО / Запчасти / Проблема** (или введите текст)
 3) Убедитесь, что появился `lead_id` и **черновик сметы** (справа)
-4) Откройте `http://localhost:3000/operator/leads` → выберите лид → посмотрите **agent_runs timeline** + **events**
-5) В `http://localhost:3000/admin` можно повторно импортировать CSV прайса и загрузить документы для RAG
+4) Откройте `http://localhost:3001/operator/leads` → выберите лид → посмотрите **agent_runs timeline** + **events**
+5) В `http://localhost:3001/admin` можно повторно импортировать CSV прайса и загрузить документы для RAG
 
 ### E2E демо (Windows / PowerShell)
 
@@ -130,6 +139,9 @@ Public endpoints (`/api/*`) остаются для UI/оператора/адм
 
 ### Demo data
 
+- **Каталог авто** (марка → модель → год → двигатель):
+  - `demo-data/vehicle_catalog.csv` — 7 марок, 14+ моделей
+  - Импорт: `make import-vehicle-catalog` или см. [USER_GUIDE.md §4](USER_GUIDE.md#4-каталог-авто-выбор-марки-модели-года-двигателя)
 - **Прайсы**:
   - `demo-data/suppliers/demo.csv` (20 строк, импортируется автоматически при первом запуске)
   - `demo-data/supplier_price.csv` и `demo-data/supplier_price.xlsx` (legacy demo файлы, можно импортировать вручную)

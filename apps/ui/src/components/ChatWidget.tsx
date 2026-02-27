@@ -125,6 +125,16 @@ export function ChatWidget() {
                 }}
               >
                 {"typing" in m && m.typing ? <TypingBubble /> : m.text}
+                {"response" in m && m.response?.questions?.length ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Уточните:</div>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {m.response.questions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {"response" in m && m.response?.next_step ? (
                   <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
                     Следующий шаг: <span className="text-fg">{m.response.next_step}</span>

@@ -1,0 +1,26 @@
+# Reduce build context for telegram_bot - only need services/core-api + apps/telegram_bot
+.git
+.gitignore
+node_modules
+**/node_modules
+apps/ui
+services/agent-orchestrator
+services/rag-service
+services/model-server
+services/channel-gateway
+services/supplier-aggregator
+*.md
+.env
+.env.*
+!.env.example
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+*.log
+.dockerignore
+demo-data
+scripts
+Makefile

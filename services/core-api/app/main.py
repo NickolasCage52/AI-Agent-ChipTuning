@@ -5,7 +5,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, agent_proxy, agent_runs, catalog, documents, estimates, events, internal_tools, leads, parts, suppliers
+from app.api import admin, agent_proxy, agent_runs, catalog, chat, documents, estimates, events, internal_tools, leads, parts, suppliers, vehicle
 from app.logging_config import setup_logging
 from app.seed import ensure_seed
 
@@ -29,8 +29,10 @@ async def request_id_middleware(request: Request, call_next):
     response.headers["X-Request-Id"] = rid
     return response
 
+app.include_router(chat.router)
 app.include_router(leads.router)
 app.include_router(catalog.router)
+app.include_router(vehicle.router)
 app.include_router(suppliers.router)
 app.include_router(parts.router)
 app.include_router(estimates.router)

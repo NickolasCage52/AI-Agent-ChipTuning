@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
-from app.models import CatalogJob, Document, DocumentChunk, PricingRule, Supplier, SupplierOffer
+from app.models import CatalogJob, Document, DocumentChunk, PricingRule, Supplier, SupplierOffer, VehicleMake, VehicleModel, VehicleEngine
 from app.repositories.suppliers import SupplierRepository
 from app.supplier_import import parse_supplier_price
 
@@ -198,6 +198,52 @@ async def ensure_seed(db: AsyncSession | None = None) -> None:
         docs = sorted([p for p in docs_dir.iterdir() if p.is_file() and p.suffix.lower() in (".md", ".txt")])
         for p in docs[:3]:
             await ensure_seed_doc(p)
+
+    # Каталог авто (если CSV есть и марки пусты)
+    vehicle_csv = demo_dir / "vehicle_catalog.csv"
+    if vehicle_csv.exists():
+        any_make = (await db.execute(select(VehicleMake).limit(1))).scalar_one_or_none()
+        if not any_make:
+            import csv
+            makes_cache: dict[str, VehicleMake] = {}
+            models_cache: dict[str, VehicleModel] = {}
+            with open(vehicle_csv, encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    make_slug = row["make_slug"].strip()
+                    make_name = row["make"].strip()
+                    if make_slug not in makes_cache:
+                        r = await db.execute(select(VehicleMake).where(VehicleMake.slug == make_slug))
+                        make = r.scalar_one_or_none()
+                        if not make:
+                            make = VehicleMake(name_ru=make_name, slug=make_slug)
+                            db.add(make)
+                            await db.flush()
+                        makes_cache[make_slug] = make
+                    make = makes_cache[make_slug]
+                    model_key = f"{make_slug}_{row['model_slug'].strip()}"
+                    model_slug = row["model_slug"].strip()
+                    if model_key not in models_cache:
+                        r = await db.execute(select(VehicleModel).where(VehicleModel.make_id == make.id, VehicleModel.slug == model_slug))
+                        model = r.scalar_one_or_none()
+                        if not model:
+                            model = VehicleModel(make_id=make.id, name_ru=row["model"].strip(), slug=model_slug,
+                                year_from=int(row["year_from"]) if row.get("year_from") else None,
+                                year_to=int(row["year_to"]) if row.get("year_to") else None)
+                            db.add(model)
+                            await db.flush()
+                        models_cache[model_key] = model
+                    model = models_cache[model_key]
+                    engine_code = row.get("engine_code", "").strip() or None
+                    engine_year_from = int(row["engine_year_from"]) if row.get("engine_year_from") else None
+                    r = await db.execute(select(VehicleEngine).where(VehicleEngine.model_id == model.id, VehicleEngine.code == engine_code, VehicleEngine.year_from == engine_year_from))
+                    if not r.scalar_one_or_none():
+                        db.add(VehicleEngine(model_id=model.id, name_ru=row["engine_name"].strip(), code=engine_code,
+                            displacement=float(row["displacement"]) if row.get("displacement") else None,
+                            fuel=row.get("fuel", "").strip() or None,
+                            power_hp=int(row["power_hp"]) if row.get("power_hp") else None,
+                            year_from=engine_year_from,
+                            year_to=int(row["engine_year_to"]) if row.get("engine_year_to") else None))
 
     await db.commit()
     if owns_session:

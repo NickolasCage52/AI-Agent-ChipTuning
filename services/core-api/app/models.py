@@ -189,3 +189,74 @@ class WidgetSession(Base):
     # NOTE: attribute name "metadata" is reserved in SQLAlchemy declarative models.
     session_meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
 
+
+class VehicleMake(Base):
+    __tablename__ = "vehicle_makes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name_ru: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    models: Mapped[list["VehicleModel"]] = relationship(
+        "VehicleModel", back_populates="make", cascade="all, delete-orphan"
+    )
+
+
+class VehicleModel(Base):
+    __tablename__ = "vehicle_models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    make_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicle_makes.id", ondelete="CASCADE"), nullable=False, index=True)
+    name_ru: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    year_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    year_to: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    make: Mapped["VehicleMake"] = relationship("VehicleMake", back_populates="models")
+    engines: Mapped[list["VehicleEngine"]] = relationship(
+        "VehicleEngine", back_populates="model", cascade="all, delete-orphan"
+    )
+
+
+class VehicleEngine(Base):
+    __tablename__ = "vehicle_engines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicle_models.id", ondelete="CASCADE"), nullable=False, index=True)
+    name_ru: Mapped[str] = mapped_column(String(150), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    displacement: Mapped[float | None] = mapped_column(Numeric(3, 1), nullable=True)
+    fuel: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    power_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    year_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    year_to: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    model: Mapped["VehicleModel"] = relationship("VehicleModel", back_populates="engines")
+
+
+class TgSession(Base):
+    __tablename__ = "tg_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True, index=True)
+    state: Mapped[str] = mapped_column(String(50), nullable=True, default="idle")
+    car_context: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True, default=dict)
+    last_intent: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    clarification_count: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
+    pending_questions: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=utcnow, nullable=False)
+
+
+class TgSearchHistory(Base):
+    __tablename__ = "tg_search_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    raw_query: Mapped[str | None] = mapped_column(Text, nullable=True)
+    masked_query: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intent: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    slots: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True, default=dict)
+    clarifications: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    results: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True, default=dict)
+    selected_tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    event_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=utcnow, nullable=False)
+

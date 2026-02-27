@@ -26,6 +26,9 @@ makemigrations:
 seed:
 >docker compose run --rm core-api python -c "import asyncio; from app.seed import ensure_seed; asyncio.run(ensure_seed()); print('seed ok')"
 
+import-vehicle-catalog:
+>docker compose run --rm -v "$$(pwd)/scripts:/scripts" -v "$$(pwd)/demo-data:/demo-data" core-api python /scripts/import_vehicle_catalog.py --file /demo-data/vehicle_catalog.csv
+
 fmt:
 >docker compose run --rm core-api black /app/app /app/tests
 >docker compose run --rm agent-orchestrator black /app/app

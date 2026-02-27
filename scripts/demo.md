@@ -3,10 +3,10 @@
 ### 1) Запуск
 
 - Старт: `docker compose up --build`
-- UI: `http://localhost:3000`
-- Чат: `http://localhost:3000/widget`
-- Оператор: `http://localhost:3000/operator/leads`
-- Админ: `http://localhost:3000/admin`
+- UI: `http://localhost:3001`
+- Чат: `http://localhost:3001/widget`
+- Оператор: `http://localhost:3001/operator/leads`
+- Админ: `http://localhost:3001/admin`
 
 ### 2) Сценарии (фразы клиента)
 

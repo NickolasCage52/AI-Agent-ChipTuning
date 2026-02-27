@@ -60,14 +60,18 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.input {
-  @apply w-full rounded-xl border px-4 py-3 outline-none;
-  background: rgba(255, 255, 255, 0.02);
-  border-color: var(--border);
+/* Единый стиль для всех полей ввода */
+.input,
+.custom-select-trigger {
+  @apply w-full rounded-xl border px-4 py-3 outline-none transition-colors;
+  background: var(--input-bg);
+  border-color: var(--input-border);
 }
 
-.input:focus {
-  box-shadow: var(--shadow-glow);
+.input:focus,
+.custom-select-trigger:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .card {
@@ -102,6 +106,46 @@ body {
 
 .text-fg {
   color: var(--fg);
+}
+
+/* Выпадающий список — тёмная тема, читаемые опции */
+.custom-select-trigger:focus {
+  outline: none;
+}
+
+.custom-select-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-select-dropdown::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+.custom-select-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Явно убираем синюю подсветку браузера у кнопок */
+.custom-select-option,
+.custom-select-placeholder {
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.custom-select-option:focus,
+.custom-select-placeholder:focus {
+  outline: none;
+}
+.custom-select-placeholder {
+  color: var(--muted) !important;
+  background: transparent !important;
+}
+.custom-select-placeholder:hover {
+  background: var(--select-option-hover) !important;
+}
+.custom-select-option:hover {
+  background: var(--select-option-hover) !important;
 }
 
 .typing-dots {

@@ -22,8 +22,8 @@ export function Header() {
           </div>
         </div>
         <nav className="flex items-center gap-4 text-sm" style={{ color: "var(--muted)" }}>
-          <a className="hover:text-fg" href="/#quiz">
-            Рассчитать
+          <a className="hover:text-fg" href="/">
+            Подбор
           </a>
           {!pagesPreview ? (
             <>

@@ -109,6 +109,16 @@ export function QuizForm() {
           <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.02)" }}>
             <div className="text-sm font-semibold">Заявка принята</div>
             <div className="mt-2 whitespace-pre-wrap text-sm">{resp.response?.answer_text || resp.answer}</div>
+            {resp.response?.questions?.length ? (
+              <div className="mt-3">
+                <div className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Уточните:</div>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  {resp.response.questions.map((q, i) => (
+                    <li key={i}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {resp.response?.next_step ? (
               <div className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
                 Следующий шаг: <span className="text-fg">{resp.response.next_step}</span>

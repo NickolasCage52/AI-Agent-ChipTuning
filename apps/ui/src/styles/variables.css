@@ -21,5 +21,16 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans",
     sans-serif;
   --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Общие стили для input и select (единый дизайн) */
+  --input-bg: rgba(255, 255, 255, 0.04);
+  --input-border: rgba(255, 255, 255, 0.12);
+
+  /* Select dropdown */
+  --select-dropdown-bg: #16181e;
+  --select-dropdown-border: rgba(255, 255, 255, 0.12);
+  --select-option-text: #e8eaef;
+  --select-option-hover: rgba(255, 255, 255, 0.1);
+  --select-option-selected: rgba(225, 29, 46, 0.2);
 }
 

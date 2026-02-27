@@ -2,10 +2,18 @@
 
 import { useMemo, useState } from "react";
 
-const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL || "http://localhost:8001";
+const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || "http://localhost:8000";
+
+type ChatResponseNew = {
+  session_id: string;
+  summary: string;
+  questions: { id: string; text: string }[];
+  bundles: { economy?: any[]; optimal?: any[]; oem?: any[] };
+  next_step: string;
+  safety_notes: string[];
+};
 
 type AgentCitation = { title: string; section?: string | null };
-
 type EstimateUIJob = { name: string; qty?: number; unit_price?: number | null; total?: number | null };
 type EstimateUIPart = {
   name: string;
@@ -15,9 +23,10 @@ type EstimateUIPart = {
   qty?: number;
   unit_price?: number | null;
   total?: number | null;
-  supplier_id?: string | null;
   stock?: number | null;
   delivery_days?: number | null;
+  in_stock?: boolean;
+  price?: number | null;
 };
 type EstimateUI = {
   jobs: EstimateUIJob[];
@@ -35,7 +44,7 @@ type AgentResponse = {
 
 type Msg =
   | { role: "user"; text: string }
-  | { role: "assistant"; text: string; response?: AgentResponse | null };
+  | { role: "assistant"; text: string; response?: AgentResponse | null; chatResponse?: ChatResponseNew | null; typing?: boolean };
 
 function isAssistantMsg(m: Msg): m is Extract<Msg, { role: "assistant" }> {
   return m.role === "assistant";
@@ -50,6 +59,16 @@ function money(v: any) {
   } catch {
     return "—";
   }
+}
+
+function TypingBubble() {
+  return (
+    <div className="typing-dots flex gap-1" aria-label="Ассистент печатает">
+      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-pulse" />
+      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-pulse" style={{ animationDelay: "0.2s" }} />
+      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-pulse" style={{ animationDelay: "0.4s" }} />
+    </div>
+  );
 }
 
 function formatCitations(citations: AgentCitation[] | undefined) {
@@ -73,26 +92,23 @@ function formatCitations(citations: AgentCitation[] | undefined) {
 function TierCard({ title, parts }: { title: string; parts: EstimateUIPart[] }) {
   return (
     <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.02)" }}>
-      <div className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-        {title}
-      </div>
-      <div className="mt-2 space-y-2">
+      <div className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>{title}</div>
+      <div className="space-y-2">
         {parts?.length ? (
           parts.map((p, idx) => (
             <div key={idx} className="rounded-xl border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
               <div className="font-medium">{p?.name || "Запчасть"}</div>
               <div className="text-xs" style={{ color: "var(--muted)" }}>
-                {p?.brand ? `${p.brand} • ` : ""}oem={p?.oem || "—"} • sku={p?.sku || "—"}
+                {p?.brand && <span>{p.brand}</span>}
+                {p?.oem && <span> • Артикул: {p.oem}</span>}
               </div>
               <div className="text-xs" style={{ color: "var(--muted)" }}>
-                цена={money(p?.unit_price)} • stock={p?.stock ?? "—"} • {p?.delivery_days ?? "—"} дн.
+                {money(p?.unit_price ?? p?.price)} • {p?.in_stock ?? (p?.stock ? p.stock > 0 : false) ? `${p?.delivery_days ?? "—"} дн.` : "Под заказ"}
               </div>
             </div>
           ))
         ) : (
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            —
-          </div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>—</div>
         )}
       </div>
     </div>
@@ -107,61 +123,71 @@ function EstimateCard({ estimate }: { estimate: EstimateUI }) {
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
         <div className="text-sm font-semibold">Результат</div>
-        <div className="text-xs" style={{ color: "var(--muted)" }}>
-          требует подтверждения: <span className="text-fg">{String(estimate?.requires_approval ?? true)}</span>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.02)" }}>
-          <div className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-            Работы
+        {estimate?.requires_approval != null && (
+          <div className="text-xs" style={{ color: "var(--muted)" }}>
+            требует подтверждения: <span className="text-fg">{String(estimate.requires_approval)}</span>
           </div>
-          <div className="mt-2 space-y-2">
-            {jobs.length ? (
-              jobs.map((j: any, idx: number) => (
-                <div key={idx} className="rounded-xl border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
-                  <div className="font-medium">{j?.name || "Работа"}</div>
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    qty={j?.qty ?? 1} • unit={money(j?.unit_price)} • total={money(j?.total)}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-sm" style={{ color: "var(--muted)" }}>
-                —
+        )}
+      </div>
+      {jobs.length > 0 && (
+        <div className="mb-4 rounded-2xl border p-4" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.02)" }}>
+          <div className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>Работы</div>
+          <div className="space-y-2">
+            {jobs.map((j: any, idx: number) => (
+              <div key={idx} className="rounded-xl border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
+                <div className="font-medium">{j?.name || "Работа"}</div>
+                <div className="text-xs" style={{ color: "var(--muted)" }}>{money(j?.total)}</div>
               </div>
-            )}
+            ))}
           </div>
         </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      )}
+      <div className="grid gap-3 md:grid-cols-3">
         <TierCard title="Эконом" parts={estimate?.parts?.economy || []} />
         <TierCard title="Оптимум" parts={estimate?.parts?.optimum || []} />
         <TierCard title="OEM" parts={estimate?.parts?.oem || []} />
       </div>
-
-      <div className="mt-4 rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
-        <div className="flex items-center justify-between text-sm">
-          <div style={{ color: "var(--muted)" }}>Итого</div>
-          <div className="font-semibold">{money(totals?.total)}</div>
+      {totals && (totals.total != null || totals.parts_total != null) && (
+        <div className="mt-4 rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
+          <div className="flex justify-between text-sm">
+            <div style={{ color: "var(--muted)" }}>Итого</div>
+            <div className="font-semibold">{money(totals?.total ?? totals?.parts_total)}</div>
+          </div>
         </div>
-        <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-          jobs_total={money(totals?.jobs_total)} • parts_total={money(totals?.parts_total)}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
+function toEstimateUI(chatResp: ChatResponseNew): EstimateUI | null {
+  const parts = chatResp.bundles || {};
+  const econ = (parts.economy || []).map((p: any) => ({
+    name: p.name,
+    brand: p.brand,
+    oem: p.oem,
+    sku: p.sku,
+    unit_price: p.price,
+    price: p.price,
+    stock: p.stock,
+    delivery_days: p.delivery_days,
+    in_stock: p.in_stock,
+  }));
+  const opt = (parts.optimal || []).map((p: any) => ({ ...p, unit_price: p.price }));
+  const oem = (parts.oem || []).map((p: any) => ({ ...p, unit_price: p.price }));
+  if (!econ.length && !opt.length && !oem.length) return null;
+  const total = [...econ, ...opt, ...oem][0]?.price;
+  return {
+    jobs: [],
+    parts: { economy: econ, optimum: opt, oem },
+    totals: { total },
+    requires_approval: true,
+  };
+}
+
 export function DemoClient() {
-  const [leadId, setLeadId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([
-    {
-      role: "assistant",
-      text: "Привет! Это локальный demo-режим. Выберите intent: ТО / Запчасти / Проблема или напишите своим текстом.",
-    },
+    { role: "assistant", text: "Привет! Выберите: ТО / Запчасти / Проблема или напишите запрос. Укажите марку, модель и год авто." },
   ]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -182,48 +208,58 @@ export function DemoClient() {
     []
   );
 
-  function buildMessage(userText: string) {
-    const base = userText.trim();
-    const ctx: string[] = [];
-    if (brand.trim()) ctx.push(`Марка: ${brand.trim()}`);
-    if (model.trim()) ctx.push(`Модель: ${model.trim()}`);
-    if (year.trim()) ctx.push(`Год: ${year.trim()}`);
-    if (engine.trim()) ctx.push(`Двигатель: ${engine.trim()}`);
-    if (mileage.trim()) ctx.push(`Пробег: ${mileage.trim()}`);
-    if (vin.trim()) ctx.push(`VIN: ${vin.trim()}`);
-    if (!ctx.length) return base;
-    return `${base}\n${ctx.join("\n")}`;
+  function getCarContext() {
+    const ctx: Record<string, string | number | null> = {};
+    if (brand.trim()) ctx.brand = brand.trim();
+    if (model.trim()) ctx.model = model.trim();
+    if (year.trim()) ctx.year = year.trim() as any;
+    if (engine.trim()) ctx.engine = engine.trim();
+    if (mileage.trim()) ctx.mileage = mileage.trim() as any;
+    if (vin.trim()) ctx.vin = vin.trim();
+    return ctx;
   }
 
   async function send(msg: string) {
-    const enriched = buildMessage(msg);
-    if (!enriched.trim()) return;
-    setMessages((m) => [...m, { role: "user", text: enriched }]);
+    const trimmed = msg.trim();
+    if (!trimmed) return;
+
+    const userText = trimmed;
+    setMessages((m) => [...m, { role: "user", text: userText }, { role: "assistant", text: "", typing: true }]);
     setText("");
     setLoading(true);
-    try {
-      const r = await fetch(`${AGENT_URL}/api/agent/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: "web", lead_id: leadId, message: enriched }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.detail || r.statusText);
 
-      setLeadId(data.lead_id);
-      const resp: AgentResponse | null = data?.response || null;
-      setMessages((m) => [...m, { role: "assistant", text: data.answer, response: resp }]);
+    try {
+        const r = await fetch(`${CORE_API_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userText,
+            car_context: getCarContext(),
+            session_id: sessionId,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.detail?.[0]?.msg || data?.detail || r.statusText);
+
+        setSessionId(data.session_id);
+        setMessages((m) => {
+          const withoutTyping = m.filter((x) => !("typing" in x) || !x.typing);
+          return [...withoutTyping, { role: "assistant", text: data.summary, chatResponse: data }];
+        });
     } catch (e: any) {
-      setMessages((m) => [...m, { role: "assistant", text: `Ошибка: ${e?.message || e}` }]);
+      setMessages((m) => {
+        const withoutTyping = m.filter((x) => !("typing" in x) || !x.typing);
+        return [...withoutTyping, { role: "assistant", text: `Не удалось обработать запрос. ${e?.message || "Попробуйте позже."}` }];
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  const lastEstimate = [...messages]
-    .reverse()
-    .filter(isAssistantMsg)
-    .find((m) => !!m.response?.estimate_ui)?.response?.estimate_ui;
+  const lastChatMsg = [...messages].reverse().find((m) => "chatResponse" in m && !!(m as { chatResponse?: ChatResponseNew }).chatResponse);
+  const lastChatResponseData = lastChatMsg ? (lastChatMsg as { chatResponse: ChatResponseNew }).chatResponse : undefined;
+  const fallbackEstimateMsg = [...messages].reverse().find((m) => isAssistantMsg(m) && (m as { response?: { estimate_ui?: EstimateUI } }).response?.estimate_ui);
+  const lastEstimate = lastChatResponseData ? toEstimateUI(lastChatResponseData) : fallbackEstimateMsg ? (fallbackEstimateMsg as { response?: { estimate_ui?: EstimateUI } }).response?.estimate_ui : undefined;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -231,26 +267,17 @@ export function DemoClient() {
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold">Чат</div>
           <div className="text-xs" style={{ color: "var(--muted)" }}>
-            lead_id: <span className="text-fg">{leadId || "—"}</span>
-            {leadId ? (
-              <>
-                {" "}
-                •{" "}
-                <a className="underline hover:text-fg" href={`/operator/leads/${leadId}`}>
-                  открыть в операторе
-                </a>
-              </>
-            ) : null}
+            session: {(sessionId || "—").toString().slice(0, 8)}
           </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3">
-          <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="brand" />
-          <input className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="model" />
-          <input className="input" value={year} onChange={(e) => setYear(e.target.value)} placeholder="year" />
-          <input className="input" value={engine} onChange={(e) => setEngine(e.target.value)} placeholder="engine" />
-          <input className="input" value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="mileage" />
-          <input className="input" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="vin" />
+          <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Марка" />
+          <input className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="Модель" />
+          <input className="input" value={year} onChange={(e) => setYear(e.target.value)} placeholder="Год" />
+          <input className="input" value={engine} onChange={(e) => setEngine(e.target.value)} placeholder="Двигатель" />
+          <input className="input" value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="Пробег" />
+          <input className="input" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="VIN" />
         </div>
 
         <div className="mb-3 flex flex-wrap gap-2">
@@ -275,11 +302,16 @@ export function DemoClient() {
                   className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm"
                   style={{
                     background: m.role === "user" ? "rgba(225,29,46,0.15)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid var(--border)`,
+                    border: "1px solid var(--border)",
                   }}
                 >
-                  {m.text}
-                  {"response" in m ? formatCitations(m.response?.citations) : null}
+                  {"typing" in m && m.typing ? <TypingBubble /> : m.text}
+                  {"chatResponse" in m && m.chatResponse && (
+                    <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                      <AssistantMessageBlock data={m.chatResponse} />
+                    </div>
+                  )}
+                  {"response" in m && m.response && !m.chatResponse && formatCitations(m.response?.citations)}
                 </div>
               </div>
             ))}
@@ -288,7 +320,7 @@ export function DemoClient() {
 
         <div className="mt-3 flex gap-2">
           <input
-            className="input"
+            className="input flex-1"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Напишите сообщение..."
@@ -312,7 +344,7 @@ export function DemoClient() {
           <div className="card">
             <div className="text-sm font-semibold">Результат</div>
             <div className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-              Отправьте запрос “ТО” / “Запчасти” / “Проблема”, чтобы получить расчёт и варианты комплектаций.
+              Отправьте запрос (ТО / Запчасти / Проблема) или напишите, что нужно — получите варианты комплектаций.
             </div>
           </div>
         )}
@@ -321,3 +353,57 @@ export function DemoClient() {
   );
 }
 
+function AssistantMessageBlock({ data }: { data: ChatResponseNew }) {
+  const tiers = [
+    { key: "economy" as const, label: "Эконом" },
+    { key: "optimal" as const, label: "Оптимум" },
+    { key: "oem" as const, label: "OEM" },
+  ];
+  const bundles = data.bundles || {};
+
+  return (
+    <div className="space-y-3 text-left">
+      {data.questions?.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Уточните:</div>
+          <div className="flex flex-wrap gap-1">
+            {data.questions.map((q) => (
+              <span
+                key={q.id}
+                className="rounded-full border px-2 py-0.5 text-xs"
+                style={{ borderColor: "var(--border)" }}
+              >
+                {q.text}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {Object.keys(bundles).length > 0 && (
+        <div>
+          <div className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Варианты:</div>
+          <div className="grid grid-cols-3 gap-2">
+            {tiers.map(({ key, label }) => {
+              const items = bundles[key] || [];
+              if (!items.length) return null;
+              return (
+                <div key={key} className="rounded-xl border p-2" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>{label}</div>
+                  {items.slice(0, 2).map((p: any, i: number) => (
+                    <div key={i} className="text-xs py-1">
+                      <div>{p.name}</div>
+                      <div style={{ color: "var(--muted)" }}>{p.brand} {money(p.price)}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {data.safety_notes?.map((n, i) => (
+        <div key={i} className="text-xs" style={{ color: "var(--muted)" }}>⚠️ {n}</div>
+      ))}
+    </div>
+  );
+}

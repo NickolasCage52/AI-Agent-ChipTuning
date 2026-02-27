@@ -1,10 +1,13 @@
 import { OperatorLeadDetail } from "@/components/OperatorLeadDetail";
 
-export const dynamicParams = false;
+const IS_GH_PAGES = process.env.DEPLOY_TARGET === "gh-pages";
+
+export const dynamicParams = IS_GH_PAGES ? false : true;
 
 export function generateStaticParams() {
-  // GitHub Pages build needs at least one static param to export dynamic route.
-  return [{ id: "demo" }];
+  // GitHub Pages build needs at least one static param to export a dynamic route.
+  // In local / server mode we want to allow any lead id.
+  return IS_GH_PAGES ? [{ id: "demo" }] : [];
 }
 
 export default function OperatorLeadDetailPage({ params }: { params: { id: string } }) {

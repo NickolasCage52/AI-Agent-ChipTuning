@@ -20,6 +20,8 @@ services:
       context: ./services/core-api
     environment:
       DATABASE_URL: postgresql+psycopg://autoshop:autoshop@postgres:5432/autoshop
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
       ASYNC_DATABASE_URL: postgresql+asyncpg://autoshop:autoshop@postgres:5432/autoshop
       ORCHESTRATOR_URL: http://agent-orchestrator:8001
       RAG_URL: http://rag-service:8003
@@ -105,10 +107,27 @@ services:
       NEXT_PUBLIC_AGENT_URL: http://localhost:8001
       NEXT_PUBLIC_RAG_URL: http://localhost:8003
     ports:
-      - "3000:3000"
+      - "${UI_PORT:-3001}:3000"
     depends_on:
       core-api:
         condition: service_healthy
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.telegram_bot
+    env_file: .env
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      DATABASE_URL: postgresql+psycopg://autoshop:autoshop@postgres:5432/autoshop
+      ASYNC_DATABASE_URL: postgresql+asyncpg://autoshop:autoshop@postgres:5432/autoshop
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

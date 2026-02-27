@@ -64,13 +64,13 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "Ready. Open these pages:"
-Write-Host "- Demo:      http://localhost:3000/demo"
-Write-Host "- Operator:  http://localhost:3000/operator/leads"
-Write-Host "- Admin:     http://localhost:3000/admin"
+Write-Host "- Demo:      http://localhost:3001/demo"
+  Write-Host "- Operator:  http://localhost:3001/operator/leads"
+  Write-Host "- Admin:     http://localhost:3001/admin"
 Write-Host ""
 Write-Host "Stop: docker compose down"
 
 if (-not $NoOpen) {
-  Start-Process "http://localhost:3000/demo" | Out-Null
+  Start-Process "http://localhost:3001/demo" | Out-Null
 }
 
