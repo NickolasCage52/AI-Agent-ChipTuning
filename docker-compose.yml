@@ -120,13 +120,11 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
-      DATABASE_URL: postgresql+psycopg://autoshop:autoshop@postgres:5432/autoshop
-      ASYNC_DATABASE_URL: postgresql+asyncpg://autoshop:autoshop@postgres:5432/autoshop
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      DB_PATH: /app/data/parts.db
       LOG_LEVEL: info
-    depends_on:
-      postgres:
-        condition: service_healthy
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
 
 volumes:

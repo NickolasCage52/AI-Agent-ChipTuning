@@ -1,5 +1,4 @@
-# Parts Assistant Telegram Bot
-# Собирает core-api + apps/telegram_bot
+# Parts Assistant Telegram Bot — поиск только по прайсам (SQLite)
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -8,10 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-COPY services/core-api/requirements.txt /app/requirements.txt
+COPY requirements-telegram-bot.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY services/core-api/ /app/
+COPY core/ /app/core/
 COPY apps/ /app/apps/
+COPY scripts/ /app/scripts/
+COPY data/ /app/data/
 
-CMD ["sh", "-c", "alembic upgrade head 2>/dev/null || true && python -m apps.telegram_bot.bot"]
+CMD ["python", "-m", "apps.telegram_bot.bot"]

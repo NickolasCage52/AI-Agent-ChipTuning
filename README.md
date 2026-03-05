@@ -16,8 +16,12 @@
 
 ### Telegram Bot
 
-Parts Assistant доступен как Telegram-бот: принимает запрос, уточняет детали (до 2 вопросов), возвращает 3 варианта с ценами.  
-См. [USER_GUIDE.md §6](USER_GUIDE.md#6-как-пользоваться-telegram-ботом) — запуск, команды, настройка `TELEGRAM_BOT_TOKEN`.
+Parts Assistant — Telegram-бот, подбирает запчасти **только из двух файлов прайса** (base + defect).  
+Возвращает 3 варианта: Эконом / Оптимум / OEM.
+
+**Куда загрузить прайсы:** `data/price_sources/base.csv`, `data/price_sources/defect.csv`  
+**Импорт:** `python -m scripts.import_prices`  
+См. [USER_GUIDE.md §6](USER_GUIDE.md#6-telegram-bot--поиск-только-по-прайсам) — запуск, команды, настройка.
 
 ### Быстрый старт
 

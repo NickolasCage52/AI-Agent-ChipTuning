@@ -6,12 +6,14 @@ import logging
 import os
 import sys
 
-# Добавить в PYTHONPATH директорию с app и core (core-api) и apps
-# В dev: project_root/services/core-api; в Docker: /app (уже содержит app, core, apps)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# PYTHONPATH: корень проекта (core/ — поиск по прайсам, без PostgreSQL)
 _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_core_api = os.path.join(_root, "services", "core-api")
-if os.path.isdir(_core_api):
-    sys.path.insert(0, _core_api)
 if _root not in sys.path:
     sys.path.insert(0, _root)
 
@@ -30,7 +32,11 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
-        logger.error("TELEGRAM_BOT_TOKEN is not set")
+        logger.error("TELEGRAM_BOT_TOKEN is not set. Добавьте в .env")
+        sys.exit(1)
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_key:
+        logger.error("GEMINI_API_KEY is not set. Добавьте в .env для работы ИИ")
         sys.exit(1)
 
     bot = Bot(token=token)

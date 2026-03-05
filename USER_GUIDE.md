@@ -125,37 +125,73 @@ curl http://localhost:8000/api/vehicle/makes
 | После docker-compose up каталог пустой | Volume не сохранился | Проверить `docker volume ls`, переимпортировать |
 | Модели не подгружаются | Неверный make_id | Проверить через `curl /api/vehicle/makes` реальные ID |
 
-## 6. Как пользоваться Telegram-ботом
+## 6. Telegram Bot — поиск только по прайсам
 
-1. Найдите бота в Telegram: `@ваш_бот`
-2. Нажмите /start
-3. Напишите запрос: что нужно + марка/модель/год
-4. Ответьте на 1–2 уточняющих вопроса (если будут)
-5. Получите 3 варианта — выберите нужный кнопкой
+Бот подбирает запчасти **только из двух файлов прайса** (базовый + некондиция). Возвращает 3 варианта: Эконом / Оптимум / OEM.
 
-**Команды:**
-- `/start` — начать заново
-- `/reset` — сбросить контекст авто
-- `/help` — справка
+### Куда загрузить прайсы
 
-### Запуск Telegram-бота
+**Положите файлы в папку `data/price_sources/`:**
+- `data/price_sources/base.csv` или `base.xlsx` — основной прайс
+- `data/price_sources/defect.csv` или `defect.xlsx` — некондиция
 
-**Docker (рекомендуется):**
+Поддерживаемые колонки (CSV/XLSX): `Артикул`, `OEM`, `Наименование`, `Бренд`, `Цена`, `Наличие`, `Срок`, `Описание`, `Каталожный номер`, `Применимость` (для некондиции).
+
+Пример CSV (разделитель `;`):
+```
+Артикул;OEM;Наименование;Бренд;Цена;Наличие;Срок
+PAD-001;04465-33480;Колодки тормозные передние Camry;AKEBONO;4200;6;2
+```
+
+### Импорт прайсов (запускать при каждой замене файлов)
+
 ```bash
-# Добавить TELEGRAM_BOT_TOKEN в .env, затем:
-docker compose up -d
-# Бот стартует вместе с остальными сервисами
+python -m scripts.import_prices
+# Или явно указать пути:
+python -m scripts.import_prices --base data/price_sources/base.csv --defect data/price_sources/defect.csv
+# В Docker (пересобрать образ: docker compose build telegram_bot):
+docker compose run --rm -w /app -v "${PWD}/data:/app/data" telegram_bot python -m scripts.import_prices
+```
+
+Данные загружаются в SQLite: `data/parts.db`.
+
+### Как пользоваться ботом
+
+1. Найдите бота в Telegram
+2. Нажмите /start
+3. Напишите запрос: «Нужны колодки на Camry 50», «OEM 90915-YZZF2», «Артикул BP02031»
+4. Ответьте на 1–2 уточняющих вопроса (если будут)
+5. Получите 3 тира — выберите кнопкой
+
+**Команды:** `/start`, `/help`, `/reset`
+
+### Запуск бота
+
+**Docker:**
+```bash
+cp .env.example .env   # заполнить TELEGRAM_BOT_TOKEN, GEMINI_API_KEY
+python -m scripts.import_prices   # загрузить прайсы
+docker compose up -d telegram_bot
 ```
 
 **Без Docker:**
 ```bash
-cd Ai_agent_chiptuning
-python -m venv .venv && .venv/Scripts/activate  # Windows
-pip install -r services/core-api/requirements.txt
+pip install -r requirements-telegram-bot.txt
 cp .env.example .env
-# Заполнить TELEGRAM_BOT_TOKEN и GEMINI_API_KEY
-$env:PYTHONPATH="$(pwd)/services/core-api;$(pwd)"; python -m apps.telegram_bot.bot
+python -m scripts.import_prices
+python -m apps.telegram_bot.bot
 ```
+
+### Устранение проблем (прайсы)
+
+| Проблема | Решение |
+|---|---|
+| Бот не отвечает | Проверить TELEGRAM_BOT_TOKEN: `curl https://api.telegram.org/bot{TOKEN}/getMe` |
+| Пустые результаты | Запустить `python -m scripts.import_prices`, проверить `data/parts.db` |
+| Ошибка импорта XLSX | `pip install openpyxl` |
+| Кодировка CSV | Сохранить в UTF-8 или CP1251 |
+| Gemini не отвечает | Проверить GEMINI_API_KEY, лимиты на aistudio.google.com |
+| В Docker прайсы пустые | Проверить volume `./data:/app/data`, переимпортировать |
 
 ## 7. Типовые сценарии использования
 
