@@ -1,4 +1,4 @@
-"""Извлечение intent и слотов из запроса пользователя через Gemini."""
+"""Извлечение intent и слотов из запроса пользователя через LLM (Ollama)."""
 from __future__ import annotations
 
 import json
@@ -6,55 +6,59 @@ import logging
 import re
 from typing import Any
 
-from core.llm_adapter import call_gemini
 from core.pii_masker import mask_pii
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """
-Ты — ИИ-ассистент автосервиса. Помогаешь подобрать запчасти из прайс-листа.
-
-Из запроса пользователя извлеки:
-- intent: "parts_search" | "maintenance_parts" | "symptom_to_parts"
-- part_query: точная фраза что ищут (для поиска в прайсе)
-- part_type: нормализованное название детали (например "тормозные колодки передние")
-- brand_pref: "oem" | "analog" | null
-- article: артикул если указан явно, иначе null
-- oem_number: OEM-номер если указан, иначе null
-- constraints: {"max_price": null, "max_days": null, "in_stock_only": false}
-- car_context: {"brand": null, "model": null, "year": null, "engine": null}
-- missing_critical: список чего не хватает для поиска
-- questions: список уточняющих вопросов (МАКСИМУМ 2, только если реально нужно)
-- summary: одна строка "что понял"
-
-Правила для questions:
-- Если есть артикул/OEM — вопросов НЕ задавать, сразу ищем.
-- Каждый вопрос ДОЛЖЕН начинаться с пояснения: "Для точного подбора укажите..." или "Чтобы подобрать нужную деталь, напишите..."
-- Примеры корректных вопросов:
-  * "Для точного подбора укажите: марка, модель и год автомобиля?"
-  * "Чтобы подобрать колодки, нужно знать: передние или задние?"
-  * "Для поиска в прайсе укажите: марку и модель авто?"
-- Если нет типа детали — спросить "Что именно нужно? Укажите название детали или артикул."
-- Если есть тип (колодки, фильтр), но нет авто — обязательно спросить марку/модель/год.
-- Если ось важна (колодки, стойки, диски) — спросить "Передние или задние?".
-- НЕ задавать вопрос если можно поискать без него (например, есть полный артикул).
-- МАКСИМУМ 2 вопроса. Вопросы должны быть конкретными и полезными.
-
-Отвечай ТОЛЬКО JSON, без markdown, без пояснений:
-{
-  "intent": "...",
-  "part_query": "...",
-  "part_type": "...",
-  "brand_pref": null,
-  "article": null,
-  "oem_number": null,
-  "constraints": {},
-  "car_context": {},
-  "missing_critical": [],
-  "questions": [],
-  "summary": "..."
+FALLBACK_RESULT = {
+    "intent": "parts_search",
+    "part_query": "",
+    "part_type": "",
+    "article": None,
+    "oem_number": None,
+    "constraints": {},
+    "car_context": {},
+    "missing_critical": ["part_type"],
+    "questions": [{"id": "q1", "text": "Что именно вам нужно? Укажите название детали или артикул."}],
+    "summary": "Не удалось распознать запрос",
 }
-"""
+
+
+def _parse_llm_response(raw: str) -> dict[str, Any]:
+    """Надёжный парсинг JSON из ответа LLM."""
+    if not raw or not isinstance(raw, str):
+        return {}
+    text = raw.strip()
+    text = re.sub(r"^```json\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^```\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\s*```$", "", text, flags=re.MULTILINE)
+    text = text.strip()
+    try:
+        result = json.loads(text)
+        if isinstance(result, dict):
+            return result
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        try:
+            result = json.loads(match.group())
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+    logger.warning("Не удалось распарсить ответ LLM: %s", text[:200] if text else "(empty)")
+    return {}
+
+try:
+    from llm import generate as llm_generate
+except ImportError:
+    from core.llm_adapter import call_llm as llm_generate
+
+try:
+    from llm.prompt_manager import get_prompt_manager
+except ImportError:
+    get_prompt_manager = None
 
 
 async def extract_intent_and_slots(
@@ -62,7 +66,7 @@ async def extract_intent_and_slots(
     car_context: dict[str, Any] | None = None,
     clarification_answers: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Вызвать Gemini для извлечения intent и слотов."""
+    """Вызвать LLM (Ollama) для извлечения intent и слотов."""
     masked = mask_pii(query)
     context_str = ""
     if car_context:
@@ -72,42 +76,35 @@ async def extract_intent_and_slots(
 
     full_query = f"Запрос пользователя: {masked}{context_str}"
 
+    system_prompt = "Ты — эксперт по автозапчастям. Извлекаешь intent и слоты. Отвечай только JSON."
+    if get_prompt_manager:
+        system_prompt, _ = get_prompt_manager().get_active_prompt()
+
     try:
-        raw = await call_gemini(prompt=full_query, system=SYSTEM_PROMPT, timeout=20)
+        raw = await llm_generate(prompt=full_query, system=system_prompt, timeout=45)
     except Exception as e:
-        logger.warning("Gemini недоступен (%s), используем rule-based fallback", e)
+        logger.warning("Ollama недоступна: %s. Используем rule-based fallback.", e)
         return _fallback_extract(query, car_context, clarification_answers)
 
-    raw = raw.strip()
-    raw = re.sub(r"^```json\s*", "", raw)
-    raw = re.sub(r"^```\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-    raw = raw.strip()
+    raw = str(raw).strip() if raw else ""
+    result = _parse_llm_response(raw)
+    if not result:
+        result = dict(FALLBACK_RESULT)
+        result["part_query"] = query
+        result["car_context"] = car_context or {}
+    if not isinstance(result.get("car_context"), dict):
+        result["car_context"] = car_context or {}
+    if not isinstance(result.get("questions"), list):
+        result["questions"] = []
 
-    try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        result = {
-            "intent": "parts_search",
-            "part_query": query,
-            "part_type": "",
-            "article": None,
-            "oem_number": None,
-            "constraints": {},
-            "car_context": car_context or {},
-            "missing_critical": ["part_type"],
-            "questions": [{"id": "q1", "text": "Что именно вам нужно? Укажите название детали или артикул."}],
-            "summary": "Не удалось распознать запрос",
-        }
-
-    # Мержим car из clarification_answers, если Gemini не извлёк
+    # Мержим car из clarification_answers, если LLM не извлёк
     if clarification_answers and not result.get("car_context", {}).get("brand"):
         for ans in clarification_answers:
             parsed = _extract_car_from_text(ans)
             for k, v in parsed.items():
                 if v and not result.get("car_context", {}).get(k):
                     result.setdefault("car_context", {})[k] = v
-    # Дополнить questions из missing_critical, если Gemini не задал вопросов
+    # Дополнить questions из missing_critical, если LLM не задал вопросов
     if not result.get("questions") and result.get("missing_critical"):
         missing = result["missing_critical"]
         fallback_questions = []
@@ -167,7 +164,7 @@ def _fallback_extract(
     car_context: dict | None,
     clarification_answers: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Rule-based извлечение при недоступности Gemini."""
+    """Rule-based извлечение при недоступности LLM."""
     q = (query or "").lower().strip()
     car = dict(car_context or {})
     # Извлекаем авто из запроса и ответов на уточнения
@@ -177,6 +174,31 @@ def _fallback_extract(
             if v and not car.get(k):
                 car[k] = v
     sku = extract_sku_from_message(query or "")
+    # general_question — приветствия, вопросы про бота, общие вопросы про авто
+    general_triggers = [
+        "привет", "здравствуй", "хай", "салют", "спасибо", "благодарю",
+        "как ты", "что умеешь", "что можешь", "ии работа", "бот работа",
+        "как работаешь", "помощь", "помоги", "подскажи",
+        "как часто", "что такое грм", "что такое дроссель", "что такое",
+    ]
+    q_lower = (query or "").lower().strip()
+    # Короткие общие вопросы без артикула — general_question
+    parts_search_patterns = ["колодк", "фильтр", "свеч", "стойк", "артикул", "oem"]
+    looks_like_parts_search = any(p in q_lower for p in parts_search_patterns) and any(
+        c in q_lower for c in ["camry", "rio", "kia", "toyota", "веста", "для", "на ", "подбор"]
+    )
+    if any(t in q_lower for t in general_triggers) and not sku and len(q_lower) < 80 and not looks_like_parts_search:
+        return {
+            "intent": "general_question",
+            "part_query": query,
+            "part_type": "",
+            "article": None,
+            "oem_number": None,
+            "car_context": car or {},
+            "missing_critical": [],
+            "questions": [],
+            "summary": "Общий вопрос",
+        }
     result: dict[str, Any] = {
         "intent": "parts_search",
         "part_query": query,
@@ -193,9 +215,15 @@ def _fallback_extract(
         "тормоз": "тормозные колодки",
         "тормоза": "тормозные колодки",
         "фильтр масл": "масляный фильтр",
+        "масляник": "масляный фильтр",
+        "масляный фильтр": "масляный фильтр",
+        "масл": "масляный фильтр",
         "фильтр воздуш": "воздушный фильтр",
         "грм": "комплект ГРМ",
         "свеч": "свечи зажигания",
+        "ходовк": "подвеска",
+        "ходовая": "подвеска",
+        "расходник": "расходные материалы",
     }
     for k, v in synonyms.items():
         if k in q:

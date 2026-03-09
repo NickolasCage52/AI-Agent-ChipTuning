@@ -1,6 +1,7 @@
 """Поиск по таблицам прайса в SQLite. Единственный источник — два файла прайса."""
 from __future__ import annotations
 
+import math
 import os
 import re
 import sqlite3
@@ -10,6 +11,8 @@ from typing import Any
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.getenv("DB_PATH", os.path.join(ROOT, "data", "parts.db"))
 
+NOT_IN_PRICELIST = "не указано в прайсе"
+
 
 @dataclass
 class PriceItem:
@@ -18,9 +21,9 @@ class PriceItem:
     brand: str
     article: str
     description: str
-    price: float
+    price: float | None
     in_stock: str
-    delivery_days: int
+    delivery_days: int | None
     catalog_number: str
     oem_number: str
     article_raw: str = ""
@@ -33,12 +36,14 @@ class PriceItem:
 
     @property
     def display_price(self) -> str:
-        return f"{self.price:,.0f} ₽".replace(",", " ") if self.price else "цена по запросу"
+        if self.price is not None and self.price > 0:
+            return f"{self.price:,.0f} ₽".replace(",", " ")
+        return NOT_IN_PRICELIST
 
     @property
     def display_delivery(self) -> str:
-        if not self.delivery_days:
-            return "уточнить"
+        if self.delivery_days is None or self.delivery_days < 0:
+            return NOT_IN_PRICELIST
         if self.delivery_days <= 1:
             return "1 день (склад)"
         if self.delivery_days <= 3:
@@ -48,7 +53,7 @@ class PriceItem:
     @property
     def display_stock(self) -> str:
         if not self.in_stock:
-            return "уточнить"
+            return NOT_IN_PRICELIST
         s = str(self.in_stock).strip().lower()
         if s.isdigit() and int(s) > 0:
             return "✓ есть"
@@ -85,9 +90,9 @@ def _row_to_item(row: sqlite3.Row, is_defect: bool = False) -> PriceItem:
         brand=_val("brand"),
         article=_val("article"),
         description=_val("description"),
-        price=float(row["price"]) if row["price"] is not None else 0,
+        price=float(row["price"]) if row["price"] is not None else None,
         in_stock=_val("in_stock"),
-        delivery_days=int(row["delivery_days"]) if row["delivery_days"] is not None else 99,
+        delivery_days=int(row["delivery_days"]) if row["delivery_days"] is not None else None,
         catalog_number=_val("catalog_number"),
         oem_number=_val("oem_number"),
         article_raw=_val("article_raw"),
@@ -106,17 +111,20 @@ def search(
     """
     Агрегированный поиск по обоим прайсам.
     Приоритет: точный артикул > OEM/каталожный > нечёткий по названию/описанию.
+    При точном поиске по артикулу возвращает ВСЕ найденные позиции из обоих прайсов.
     """
     conn = get_connection()
     results: list[PriceItem] = []
 
+    # Точный артикул — без лимита, чтобы вернуть все позиции из обоих прайсов
+    article_limit = 500 if article and not query else max_results
     if article:
         norm = normalize_article(article)
         for table, is_def in [("products", False), ("products_defect", True)]:
             try:
                 rows = conn.execute(
                     f"SELECT * FROM {table} WHERE article = ? OR article_raw = ? LIMIT ?",
-                    (norm, article.strip(), max_results),
+                    (norm, article.strip(), article_limit),
                 ).fetchall()
                 results.extend(_row_to_item(r, is_def) for r in rows)
             except sqlite3.OperationalError:
@@ -181,9 +189,14 @@ def build_tiers(items: list[PriceItem]) -> dict[str, list[PriceItem]]:
     """
     Собирает 3 тира из списка найденных позиций.
     Возвращает dict с ключами: economy, optimal, oem.
+    Если найдена только одна позиция — она в Optimal, остальные тиры пустые.
     """
     if not items:
         return {"economy": [], "optimal": [], "oem": []}
+
+    # Одна позиция — показываем только в Optimal
+    if len(items) == 1:
+        return {"economy": [], "optimal": items.copy(), "oem": []}
 
     normal = [i for i in items if not i.is_defect]
     OEM_BRANDS = {
@@ -198,11 +211,14 @@ def build_tiers(items: list[PriceItem]) -> dict[str, list[PriceItem]]:
         or any(b in i.brand.lower() for b in OEM_BRANDS)
     ]
 
-    economy_pool = sorted(items, key=lambda x: (x.price or 999999, x.delivery_days or 99))
+    economy_pool = sorted(
+        [i for i in items if i.price is not None and i.price > 0],
+        key=lambda x: (x.price, x.delivery_days if x.delivery_days is not None else math.inf),
+    )
 
     def optimal_score(item: PriceItem) -> float:
-        price_score = (item.price or 99999) / 1000
-        delivery_score = (item.delivery_days or 30) * 0.5
+        price_score = (item.price / 1000) if item.price and item.price > 0 else 999.0
+        delivery_score = (item.delivery_days * 0.5) if item.delivery_days is not None and item.delivery_days >= 0 else 30.0
         stock_bonus = -2 if "✓" in item.display_stock else 0
         defect_penalty = 1 if item.is_defect else 0
         return price_score + delivery_score + stock_bonus + defect_penalty

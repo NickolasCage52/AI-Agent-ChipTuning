@@ -15,6 +15,5 @@ pytest==8.3.3
 pytest-asyncio==0.25.3
 ruff==0.9.8
 black==25.1.0
-google-genai>=1.0.0
 tenacity>=8.0.0
 aiogram>=3.13.0

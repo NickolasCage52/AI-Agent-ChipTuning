@@ -35,6 +35,8 @@ ROOT = Path(__file__).parent.parent
 DB_PATH = os.getenv("DB_PATH", str(ROOT / "data" / "parts.db"))
 
 # Маппинг: имя колонки в файле -> поле в БД (для обоих прайсов)
+# Реальные заголовки из data/price_sources/base.xlsx:
+# Номенклатура, Бренд, Артикул, Описание, Кратность отгрузки, Цена руб., Наличие, Срок поставки дн., Каталожный номер, OEМ Номер
 COLUMN_ALIASES: dict[str, str] = {
     "Номенклатура": "nomenclature",
     "Наименование": "nomenclature",
@@ -43,11 +45,18 @@ COLUMN_ALIASES: dict[str, str] = {
     "Описание": "description",
     "Кратность отгрузки": "batch_size",
     "Цена": "price",
+    "Цена, руб.": "price",
+    "Цена руб.": "price",
+    "Цена (руб.)": "price",
     "Наличие": "in_stock",
     "Срок поставки (дн.)": "delivery_days",
+    "Срок поставки, дн.": "delivery_days",
+    "Срок поставки дн.": "delivery_days",
     "Срок": "delivery_days",
+    "Срок (дн.)": "delivery_days",
     "Каталожный номер": "catalog_number",
     "OEM Номер": "oem_number",
+    "OEМ Номер": "oem_number",  # Cyrillic М
     "OEM": "oem_number",
     "Вес/Объем": "weight_volume",
     "Применимость": "applicability",
@@ -64,7 +73,9 @@ def _get_column_map(file_headers: list[str]) -> dict[str, str]:
     """Вернуть маппинг: заголовок_в_файле -> поле_в_БД."""
     result = {}
     for h in file_headers:
-        h_clean = h.strip()
+        h_clean = (h or "").strip()
+        if not h_clean:
+            continue
         if h_clean in COLUMN_ALIASES:
             result[h_clean] = COLUMN_ALIASES[h_clean]
     return result
@@ -122,14 +133,20 @@ def read_file(filepath: str, expected_columns: dict | None = None) -> tuple[list
                     wb.close()
                     xlsx_ok = True
                 except BadZipFile:
-                    errors.append(f"Файл {path.name} не является XLSX. Пробуем читать как CSV...")
+                    errors.append(f"Файл {path.name} не является XLSX. Пробуем xlrd (xls)...")
             if not xlsx_ok and HAS_PANDAS:
                 try:
                     df = pd.read_excel(read_path, dtype=str, engine="openpyxl")
                     raw_rows = df.to_dict("records")
                     xlsx_ok = True
-                except BadZipFile:
-                    pass
+                except (BadZipFile, Exception):
+                    try:
+                        import xlrd
+                        df = pd.read_excel(read_path, dtype=str, engine="xlrd")
+                        raw_rows = df.to_dict("records")
+                        xlsx_ok = True
+                    except (ImportError, Exception):
+                        pass
             if not xlsx_ok:
                 ext = ".csv"
                 read_path = filepath

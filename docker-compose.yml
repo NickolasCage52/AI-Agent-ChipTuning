@@ -20,8 +20,8 @@ services:
       context: ./services/core-api
     environment:
       DATABASE_URL: postgresql+psycopg://autoshop:autoshop@postgres:5432/autoshop
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       ASYNC_DATABASE_URL: postgresql+asyncpg://autoshop:autoshop@postgres:5432/autoshop
       ORCHESTRATOR_URL: http://agent-orchestrator:8001
       RAG_URL: http://rag-service:8003
@@ -119,12 +119,15 @@ services:
     env_file: .env
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-90}
       DB_PATH: /app/data/parts.db
       LOG_LEVEL: info
     volumes:
       - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:

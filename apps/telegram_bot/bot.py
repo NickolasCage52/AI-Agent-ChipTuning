@@ -18,9 +18,9 @@ if _root not in sys.path:
     sys.path.insert(0, _root)
 
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
 
 from .handlers import commands, messages, callbacks
+from .storage import SQLiteStorage
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper()),
@@ -34,13 +34,9 @@ async def main() -> None:
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN is not set. Добавьте в .env")
         sys.exit(1)
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if not gemini_key:
-        logger.error("GEMINI_API_KEY is not set. Добавьте в .env для работы ИИ")
-        sys.exit(1)
 
     bot = Bot(token=token)
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=SQLiteStorage())
 
     dp.include_router(commands.router)
     dp.include_router(messages.router)

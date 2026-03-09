@@ -1,0 +1,42 @@
+maintenance_levels:
+  basic:
+    - name: "масляный фильтр"
+      search_terms: ["фильтр масляный", "oil filter", "масляный фильтр"]
+      priority: required
+    - name: "воздушный фильтр"
+      search_terms: ["фильтр воздушный", "air filter"]
+      priority: required
+    - name: "фильтр салонный"
+      search_terms: ["фильтр салона", "cabin filter", "салонный фильтр"]
+      priority: required
+    - name: "моторное масло"
+      search_terms: ["масло моторное", "engine oil", "моторное масло"]
+      priority: required
+
+  standard:
+    extends: basic
+    items:
+      - name: "свечи зажигания"
+        search_terms: ["свечи", "spark plugs", "свечи зажигания"]
+        priority: recommended
+        mileage_trigger: 30000
+      - name: "жидкость тормозная"
+        search_terms: ["тормозная жидкость", "brake fluid"]
+        priority: recommended
+
+  full:
+    extends: standard
+    items:
+      - name: "тормозные колодки передние"
+        search_terms: ["колодки тормозные передние", "передние колодки"]
+        priority: check_condition
+      - name: "тормозные колодки задние"
+        search_terms: ["колодки тормозные задние", "задние колодки"]
+        priority: check_condition
+      - name: "антифриз"
+        search_terms: ["антифриз", "охлаждающая жидкость"]
+        priority: check_condition
+      - name: "комплект ГРМ"
+        search_terms: ["грм", "ремень грм", "комплект грм"]
+        priority: mileage_dependent
+        mileage_trigger: 90000

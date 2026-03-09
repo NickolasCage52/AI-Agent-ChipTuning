@@ -1,1 +1,1 @@
-"""Core-ядро Parts Assistant: поиск по прайсам, intent, Gemini. Не зависит от Telegram."""
+"""Core-ядро Parts Assistant: поиск по прайсам, intent, LLM (Ollama). Не зависит от Telegram."""

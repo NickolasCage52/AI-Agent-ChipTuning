@@ -11,6 +11,9 @@ COPY requirements-telegram-bot.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY core/ /app/core/
+COPY llm/ /app/llm/
+COPY storage/ /app/storage/
+COPY config/ /app/config/
 COPY apps/ /app/apps/
 COPY scripts/ /app/scripts/
 COPY data/ /app/data/

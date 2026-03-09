@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+NOT_IN_PRICELIST = "не указано в прайсе"
+
 if TYPE_CHECKING:
     from core.price_search import PriceItem
 
@@ -24,9 +26,9 @@ def format_item(item: Any, num: int) -> str:
     art = item.get("article_raw") or item.get("article", "")
     article = f"арт. {art}" if art else ""
     desc = (item.get("description") or item.get("nomenclature") or "")[:60]
-    price = f"{item.get('price', 0):,.0f} ₽".replace(",", " ") if item.get("price") else "цена по запросу"
+    price = f"{item.get('price', 0):,.0f} ₽".replace(",", " ") if item.get("price") else NOT_IN_PRICELIST
     delivery = (
-        f"{item.get('delivery_days', 0)} дн." if item.get("delivery_days") else "уточнить"
+        f"{item.get('delivery_days', 0)} дн." if item.get("delivery_days") is not None else NOT_IN_PRICELIST
     )
     instock = str(item.get("in_stock", "")).lower()
     stock = (
@@ -41,10 +43,10 @@ def format_item(item: Any, num: int) -> str:
     )
 
 
-def format_tier(emoji: str, label: str, items: list[Any]) -> str:
+def format_tier(emoji: str, label: str, items: list[Any], no_items_text: str = "нет подходящих позиций") -> str:
     """Форматирование тира."""
     if not items:
-        return f"{emoji} <b>{label}:</b>\n  — нет подходящих позиций\n"
+        return f"{emoji} <b>{label}:</b>\n  — {no_items_text}\n"
     lines = [f"{emoji} <b>{label}:</b>"]
     for i, item in enumerate(items[:3], 1):
         lines.append(format_item(item, i))
@@ -56,22 +58,26 @@ def format_results(
     part_type: str,
     tiers: dict[str, list[Any]],
     safety_note: str = "",
+    single_item: bool = False,
 ) -> str:
     """Сборка ответа с 3 тирами."""
     economy = tiers.get("economy", [])
     optimal = tiers.get("optimal", [])
     oem = tiers.get("oem", [])
 
+    empty_msg = "нет других вариантов" if single_item else "нет подходящих позиций"
     parts = [f"🔍 <b>Понял:</b> {summary}"]
     if part_type:
         parts.append(f"📦 Ищу: <i>{part_type}</i>\n")
     parts.append("─" * 30)
-    parts.append(format_tier("🟢", "Economy (дешевле)", economy))
-    parts.append(format_tier("🟡", "Optimal (баланс)", optimal))
+    parts.append(format_tier("🟢", "Economy (дешевле)", economy, no_items_text=empty_msg))
+    parts.append(format_tier("🟡", "Optimal (баланс)", optimal, no_items_text=empty_msg))
     if oem:
-        parts.append(format_tier("🔵", "OEM / Оригинал", oem))
+        parts.append(format_tier("🔵", "OEM / Оригинал", oem, no_items_text=empty_msg))
     else:
-        parts.append("🔵 <b>OEM / Оригинал:</b>\n  — OEM-позиции не выделены в прайсе\n")
+        parts.append(
+            f"🔵 <b>OEM / Оригинал:</b>\n  — {'нет других вариантов' if single_item else 'OEM-позиции не выделены в прайсе'}\n"
+        )
     if safety_note:
         parts.append(f"\n⚠️ <i>{safety_note}</i>")
     parts.append("\n👇 <b>Выберите вариант или напишите новый запрос:</b>")

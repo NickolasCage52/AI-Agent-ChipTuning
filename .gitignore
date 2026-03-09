@@ -37,3 +37,6 @@ out/
 .env.*
 !.env.example
 
+# --- Data (generated, large DB) ---
+data/parts.db
+

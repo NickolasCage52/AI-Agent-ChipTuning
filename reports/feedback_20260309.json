@@ -1,0 +1,12 @@
+{
+  "days": 30,
+  "total_cycles": 0,
+  "cycles_with_feedback": 0,
+  "likes": 0,
+  "dislikes": 0,
+  "success_count": 0,
+  "failed_count": 0,
+  "success_rate": 0,
+  "feedback_rate": 0,
+  "top_dislike_reasons": []
+}

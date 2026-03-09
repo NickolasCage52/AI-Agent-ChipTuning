@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any
 
-from app.llm.gemini_adapter import call_gemini
+from app.llm.llm_adapter import call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def _questions_from_missing(missing: list[str]) -> list[dict[str, str]]:
 
 
 def _fallback_extract(message: str, car_context: dict[str, Any]) -> dict[str, Any]:
-    """Rule-based fallback когда Gemini недоступен."""
+    """Rule-based fallback при недоступности Ollama."""
     m = message.lower()
     intent = "parts_search"
     if any(x in m for x in ["то", "техобслуж", "масло", "oil"]):
@@ -118,9 +118,6 @@ def _fallback_extract(message: str, car_context: dict[str, Any]) -> dict[str, An
 
 
 def extract_intent_and_slots(message: str, car_context: dict[str, Any]) -> dict[str, Any]:
-    if not os.environ.get("GEMINI_API_KEY"):
-        return _fallback_extract(message, car_context)
-
     car_str = (
         f"Авто: {car_context.get('brand', '')} {car_context.get('model', '')} "
         f"{car_context.get('year', '') or ''} {car_context.get('engine', '') or ''}"
@@ -129,7 +126,7 @@ def extract_intent_and_slots(message: str, car_context: dict[str, Any]) -> dict[
 
     raw = ""
     try:
-        raw = call_gemini(prompt, system=SYSTEM_PROMPT)
+        raw = call_llm(prompt, system=SYSTEM_PROMPT)
         raw = raw.strip()
         raw = re.sub(r"^```json\s*", "", raw)
         raw = re.sub(r"^```\s*", "", raw)
@@ -137,10 +134,10 @@ def extract_intent_and_slots(message: str, car_context: dict[str, Any]) -> dict[
         raw = raw.strip()
         result = json.loads(raw)
     except Exception as e:
-        logger.warning("Gemini parse failed: %s | raw[:200]=%s", e, raw[:200] if raw else "")
+        logger.warning("Ollama недоступна: %s. Используем rule-based fallback.", e)
         result = _fallback_extract(message, car_context)
 
-    # Если Gemini вернул missing_fields но пустые questions — дополняем
+    # Если LLM вернул missing_fields но пустые questions — дополняем
     if result.get("missing_fields") and not result.get("questions"):
         result["questions"] = _questions_from_missing(result["missing_fields"])
 

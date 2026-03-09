@@ -1,0 +1,30 @@
+version: 1.0.2
+created_at: '2025-03-09'
+change_source: manual
+overlay:
+  synonyms:
+  - raw:
+    - масляник
+    - масляный
+    - маслянный
+    normalized: масляный фильтр
+  - raw:
+    - грм
+    - грм комплект
+    normalized: комплект ГРМ
+  - raw:
+    - ходовка
+    - ходовая
+    normalized: подвеска
+  few_shot_examples: []
+  clarification_templates:
+    missing_car: Укажите марку, модель и год автомобиля.
+    missing_part: Что именно нужно подобрать? Назовите деталь или артикул.
+    missing_axle: Передние или задние?
+  normalization_hints: []
+  ranking_weights:
+    price: 0.35
+    delivery: 0.3
+    stock: 0.25
+    quality: 0.1
+change_reason: Initial
